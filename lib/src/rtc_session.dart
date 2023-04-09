@@ -692,8 +692,8 @@ class RTCSession extends EventManager implements Owner {
     bool fixApplied = false;
     for (Map<String, dynamic> m in sdp['media']) {
       if (m['type'] == 'video') {
-        final List<Map<String, dynamic>> rtpList = m['rtp'];
-        final List<Map<String, dynamic>> fmtpList = m['fmtp'];
+        final List<Map<String, dynamic>> rtpList = (m['rtp'] as List<dynamic>).cast<Map<String, dynamic>>();
+        final List<Map<String, dynamic>> fmtpList = (m['fmtp'] as List<dynamic>).cast<Map<String, dynamic>>();
         if (rtpList.length == 1 && fmtpList.isEmpty) {
           final Map<String, dynamic> rtp = rtpList.first;
           final int payload = rtp['payload'];
