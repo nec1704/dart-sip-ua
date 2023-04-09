@@ -621,9 +621,10 @@ class RTCSession extends EventManager implements Owner {
     }
 
     logger.d('emit "sdp"');
-    emit(EventSdp(originator: 'remote', type: 'offer', sdp: request.body));
 
     final String fixedSdp = _fixSdp(sdp, request.body);
+
+    emit(EventSdp(originator: 'remote', type: 'offer', sdp: fixedSdp));
 
     RTCSessionDescription offer = RTCSessionDescription(fixedSdp, 'offer');
     try {
@@ -690,34 +691,41 @@ class RTCSession extends EventManager implements Owner {
 
   String _fixSdp(Map<String, dynamic> sdp, String original) {
     bool fixApplied = false;
-    for (Map<String, dynamic> m in sdp['media']) {
-      if (m['type'] == 'video') {
-        final List<Map<String, dynamic>> rtpList = (m['rtp'] as List<dynamic>).cast<Map<String, dynamic>>();
-        final List<Map<String, dynamic>> fmtpList = (m['fmtp'] as List<dynamic>).cast<Map<String, dynamic>>();
-        if (rtpList.length == 1 && fmtpList.isEmpty) {
-          final Map<String, dynamic> rtp = rtpList.first;
-          final int payload = rtp['payload'];
-          final String codec = rtp['codec'];
-          if (codec == 'H264') {
-            logger.i('fix Sdp for payload $payload and codec $codec');
-            fmtpList.add(<String, dynamic>{
-              'payload': payload,
-              'config': 'level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f'
-            });
-            fixApplied = true;
+    try {
+      for (Map<String, dynamic> m in sdp['media']) {
+        if (m['type'] == 'video') {
+          final List<Map<String, dynamic>> rtpList = (m['rtp'] as List<dynamic>).cast<
+              Map<String, dynamic>>();
+          final List<Map<String, dynamic>> fmtpList = (m['fmtp'] as List<dynamic>).cast<
+              Map<String, dynamic>>();
+          if (rtpList.length == 1 && fmtpList.isEmpty) {
+            final Map<String, dynamic> rtp = rtpList.first;
+            final int payload = rtp['payload'];
+            final String codec = rtp['codec'];
+            if (codec == 'H264') {
+              logger.i('fix Sdp for payload $payload and codec $codec');
+              fmtpList.add(<String, dynamic>{
+                'payload': payload,
+                'config': 'level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f'
+              });
+              fixApplied = true;
+            }
+          } else {
+            logger.i('Fix sdp is not needed because of rtl length = ${rtpList
+                .length} and fmtp length = ${fmtpList.length}');
           }
-        } else {
-          logger.i('Fix sdp is not needed because of rtl length = ${rtpList.length} and fmtp length = ${fmtpList.length}');
         }
       }
+      if (fixApplied) {
+        final String fixed = sdp_transform.write(sdp, null);
+        logger.i('Fixed SDP:');
+        logger.i(fixed);
+        return fixed;
+      }
+      logger.i('SDP fix is not needed');
+    } catch (e, s) {
+      logger.e('Unexpected error occurred during SDP fix', e, s);
     }
-    if (fixApplied) {
-      final String fixed = sdp_transform.write(sdp, null);
-      logger.i('Fixed SDP:');
-      logger.i(fixed);
-      return fixed;
-    }
-    logger.i('SDP fix i not needed');
     return original;
   }
 
