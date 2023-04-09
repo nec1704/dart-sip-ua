@@ -706,7 +706,7 @@ class RTCSession extends EventManager implements Owner {
               logger.i('fix Sdp for payload $payload and codec $codec');
               fmtpList.add(<String, dynamic>{
                 'payload': payload,
-                'config': 'level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f'
+                'config': 'level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42801f'
               });
               fixApplied = true;
             }
