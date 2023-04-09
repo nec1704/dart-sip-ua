@@ -623,7 +623,9 @@ class RTCSession extends EventManager implements Owner {
     logger.d('emit "sdp"');
     emit(EventSdp(originator: 'remote', type: 'offer', sdp: request.body));
 
-    RTCSessionDescription offer = RTCSessionDescription(request.body, 'offer');
+    final String fixedSdp = _fixSdp(sdp, request.body);
+
+    RTCSessionDescription offer = RTCSessionDescription(fixedSdp, 'offer');
     try {
       await _connection!.setRemoteDescription(offer);
     } catch (error) {
@@ -684,6 +686,39 @@ class RTCSession extends EventManager implements Owner {
       }
       logger.e('Failed to answer(): ${error.toString()}', error, s);
     }
+  }
+
+  String _fixSdp(Map<String, dynamic> sdp, String original) {
+    bool fixApplied = false;
+    for (Map<String, dynamic> m in sdp['media']) {
+      if (m['type'] == 'video') {
+        final List<Map<String, dynamic>> rtpList = m['rtp'];
+        final List<Map<String, dynamic>> fmtpList = m['fmtp'];
+        if (rtpList.length == 1 && fmtpList.isEmpty) {
+          final Map<String, dynamic> rtp = rtpList.first;
+          final int payload = rtp['payload'];
+          final String codec = rtp['codec'];
+          if (codec == 'H264') {
+            logger.i('fix Sdp for payload $payload and codec $codec');
+            fmtpList.add(<String, dynamic>{
+              'payload': payload,
+              'config': 'level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f'
+            });
+            fixApplied = true;
+          }
+        } else {
+          logger.i('Fix sdp is not needed because of rtl length = ${rtpList.length} and fmtp length = ${fmtpList.length}');
+        }
+      }
+    }
+    if (fixApplied) {
+      final String fixed = sdp_transform.write(sdp, null);
+      logger.i('Fixed SDP:');
+      logger.i(fixed);
+      return fixed;
+    }
+    logger.i('SDP fix i not needed');
+    return original;
   }
 
   /**
